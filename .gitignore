@@ -1,0 +1,18 @@
+﻿# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Excel, logs and processed files
+*.xlsx
+logs/
+Processed/
+
+# IDE
+.vscode/
