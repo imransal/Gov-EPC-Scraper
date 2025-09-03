@@ -1,101 +1,112 @@
 # EPC Certificate Scraper
 
-This tool automatically downloads EPC (Energy Performance Certificate) PDFs for properties listed in the "Spring Acres - Cantebury.xlsx" spreadsheet.
+This tool automatically downloads EPC (Energy Performance Certificate) PDFs for properties listed in Excel spreadsheets from the UK Government's energy certificate database.
 
-## 📁 Files Overview
+## 📁 Project Structure
 
-- `epc_scraper.py` - Main scraping script
-- `test_scraper.py` - Setup verification script
-- `run_scraper.bat` - Windows batch file to run the scraper easily
-- `Spring Acres - Cantebury.xlsx` - Input spreadsheet with 471 properties
-- `Processed/` - Downloaded PDF certificates will be saved here
-- `logs/` - Log files with detailed processing information
+```
+EPC_Scraper/
+├── epc_scraper.py           # Main scraping script
+├── run_scraper.bat          # Windows batch file to run the scraper
+├── README.md                # This documentation
+├── .gitignore              # Git ignore rules
+├── logs/                   # Log files (created automatically)
+├── Processed/              # Downloaded PDF certificates
+└── .venv/                  # Python virtual environment
+```
 
 ## 🚀 Quick Start
 
-### Option 1: Double-click to run
-Simply double-click `run_scraper.bat` to start the scraping process.
+### Prerequisites
+- Python 3.13+ 
+- Chrome browser installed
+- Excel file with property data
 
-### Option 2: Command line
+### Setup
+1. Clone this repository
+2. Install dependencies:
+   ```bash
+   .\.venv\Scripts\pip.exe install pandas openpyxl selenium
+   ```
+
+### Running the Scraper
+
+**Option 1: Double-click to run**
+```
+Double-click run_scraper.bat
+```
+
+**Option 2: Command line**
 ```cmd
 .\.venv\Scripts\python.exe epc_scraper.py
 ```
 
-### Option 3: Test setup first
-```cmd
-.\.venv\Scripts\python.exe test_scraper.py
-```
+When prompted, enter the path to your Excel spreadsheet file.
 
-## 📊 Spreadsheet Data
+## 📊 Input Data Format
 
-The spreadsheet contains 471 properties with the following key information:
+The Excel spreadsheet should contain columns:
 - **UPRN**: Unique Property Reference Number
-- **Scheme Abbreviation**: RSC (Riverside Square, Canterbury)
+- **Scheme Abbreviation**: Development abbreviation (e.g., "RSC")
 - **Development Plot Number**: Property number within development
-- **Address Components**: Multiple address line fields
-- **Post Code**: All properties are in Canterbury (CT1 1GE area)
-- **Tenure**: SO (Shared Ownership)
+- **Address Line 1-5**: Property address components
+- **Town**: Town/city
+- **Post Code**: UK postcode
+- **Tenure**: Property tenure type (e.g., "SO" for Shared Ownership)
 
 ## 🎯 How It Works
 
-1. **Address Construction**: Combines address fields into searchable format
-2. **Filename Generation**: Creates organized filenames like "EPC - RSC - 1.0 - SO - 56540000001.pdf"
-3. **Web Scraping**: 
-   - Navigates to gov.uk EPC search
-   - Searches by postcode
-   - Matches property address
-   - Downloads PDF certificate
+1. **Automated Navigation**: Opens gov.uk EPC search in Chrome
+2. **Property Processing**: For each property in the spreadsheet:
+   - Selects "Domestic property" option
+   - Enters the postcode
+   - Finds and selects the matching address
+   - Downloads the EPC certificate as PDF
+3. **Organized Output**: Saves PDFs with structured filenames
 4. **Progress Tracking**: Logs all activities with success/failure status
 
-## 📋 Example Output Filename
+## 📋 Output
 
-For the first property:
+### PDF Filenames
+Files are saved with the format:
 ```
-EPC - RSC - 1.0 - SO - 56540000001.pdf
+EPC - [Scheme] - [Plot] - [Tenure] - [UPRN].pdf
 ```
 
-Where:
-- `RSC` = Scheme Abbreviation
-- `1.0` = Development Plot Number  
-- `SO` = Tenure (Shared Ownership)
-- `56540000001` = UPRN
+Example: `EPC - RSC - 1.0 - SO - 56540000001.pdf`
 
-## 📈 Progress Monitoring
-
+### Logging
 - **Console Output**: Real-time progress updates
-- **Log Files**: Detailed logs saved to `logs/` directory with timestamp
-- **Summary Report**: Final statistics and any failed downloads
-- **Results CSV**: Detailed processing results with error information
+- **Log Files**: Detailed logs in `logs/` directory with timestamp
+- **Summary Report**: Final statistics and failed downloads
+- **Results CSV**: Processing results with error details
 
 ## ⚙️ Configuration
 
-The scraper is pre-configured for:
-- Chrome browser automation
-- 15-second timeout for web elements
-- 2-second delay between property requests
-- Automatic PDF download to `Processed/` folder
-- Comprehensive logging
-
-## 🛡️ Safety Features
-
-- Respectful scraping with delays between requests
+The scraper includes:
+- 20-second timeout for web elements
+- 2-second delay between property requests (respectful scraping)
+- Automatic Chrome browser management
 - Comprehensive error handling and logging
-- Progress tracking and resume capability
-- Clean filename sanitization
-- Browser automation cleanup
+- Smart address matching with fallback options
 
-## 📊 Expected Results
+## 🛡️ Features
 
-- **Total Properties**: 471
-- **Estimated Time**: 30-60 minutes (depending on network and site response)
-- **Success Rate**: Depends on address matching accuracy and site availability
+- **Robust Address Matching**: Handles variations in address formats
+- **Error Recovery**: Continues processing if individual properties fail
+- **Progress Tracking**: Resume capability with detailed logging
+- **File Management**: Automatic renaming and duplicate handling
+- **Respectful Scraping**: Built-in delays and proper cleanup
+
+## � Performance
+
+- Processes ~30-60 properties per hour (depending on network speed)
+- Handles large datasets (tested with 471+ properties)
+- Memory efficient with automatic cleanup
 
 ## 🔧 Environment
 
-- **Python**: 3.13.5 (virtual environment)
-- **Key Packages**: pandas 2.3.2, selenium 4.35.0, openpyxl 3.1.5
+- **Python**: 3.13.5 (virtual environment included)
+- **Dependencies**: pandas, selenium, openpyxl
 - **Browser**: Chrome (automated via Selenium WebDriver)
-
-## 📞 Support
-
-Check the log files in the `logs/` directory for detailed information about any issues. The scraper provides comprehensive error reporting and progress tracking.
+- **Platform**: Windows (PowerShell commands included)
