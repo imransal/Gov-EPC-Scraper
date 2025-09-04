@@ -396,7 +396,8 @@ class EPCCertificateScraper:
                     try:
                         selected_match[0].click()
                         self.logger.info("Successfully clicked matching address link")
-                        return True
+                        # Return success, matched address, and match score for auditing
+                        return True, selected_match[1], selected_match[2]
                     except Exception as e:
                         self.logger.error(f"Failed to click selected match: {e}")
                 
@@ -407,22 +408,22 @@ class EPCCertificateScraper:
                         self.logger.warning(f"No good matches found. Trying first address: {first_address}")
                         address_links[0].click()
                         self.logger.info("Clicked first available address as fallback")
-                        return True
+                        return True, first_address, 0.0  # Return success, fallback address, and 0 score
                     except Exception as e:
                         self.logger.error(f"Failed to click first address: {e}")
                 
                 self.logger.error("No suitable address found to click")
-                return False
+                return False, None, 0.0
                 
             except TimeoutException:
                 self.logger.error("No address links found on page")
                 self.debug_page_state("no_address_links")
-                return False
+                return False, None, 0.0
             
         except Exception as e:
             self.logger.error(f"Error in address selection: {e}")
             self.debug_page_state("address_selection_error")
-            return False
+            return False, None, 0.0
     
     def normalize_address_for_matching(self, address):
         """Normalize address text for better matching"""
@@ -912,13 +913,39 @@ class EPCCertificateScraper:
                 print(f"Address: {full_address}")
                 print(f"Postcode: {postcode}")
                 
-                result = self.download_epc_certificate(full_address, postcode, row)
+                result_tuple = self.download_epc_certificate(full_address, postcode, row)
                 
-                # Store result with original row data
+                # Handle the returned tuple (success, matched_address, match_score)
+                if isinstance(result_tuple, tuple) and len(result_tuple) >= 3:
+                    result, matched_address, match_score = result_tuple
+                elif isinstance(result_tuple, tuple) and len(result_tuple) == 2:
+                    result, matched_address = result_tuple
+                    match_score = 0.0
+                else:
+                    # Fallback for backward compatibility
+                    result = result_tuple if isinstance(result_tuple, bool) else False
+                    matched_address = "Address details not captured"
+                    match_score = 0.0
+                
+                # Determine match quality based on score
+                match_quality = "Failed"
+                if result and match_score >= 0.8:
+                    match_quality = "High Confidence"
+                elif result and match_score >= 0.5:
+                    match_quality = "Medium Confidence"
+                elif result and match_score > 0.0:
+                    match_quality = "Low Confidence"
+                elif result:
+                    match_quality = "Fallback Match"
+                
+                # Store result with original row data and audit information
                 result_entry = {
                     'Original_Index': index,
-                    'Address': full_address,
-                    'Postcode': postcode,
+                    'Input_Address': full_address,  # What we searched for
+                    'Input_Postcode': postcode,
+                    'Matched_Address': matched_address or "No match found",  # What was actually selected
+                    'Match_Score': round(match_score, 3) if match_score > 0 else 0.0,
+                    'Match_Quality': match_quality,
                     'Status': 'Success' if result else 'Failed',
                     'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
@@ -932,8 +959,10 @@ class EPCCertificateScraper:
                 
                 if result:
                     self.success_count += 1
+                    print(f"✅ Matched with: {matched_address}")
                 else:
                     self.failure_count += 1
+                    print(f"❌ Failed to match")
                 
                 # Generate intermediate report every 10 properties or if we have failures
                 if (index + 1) % 10 == 0 or not result:
@@ -958,6 +987,8 @@ class EPCCertificateScraper:
     
     def download_epc_certificate(self, address, postcode, row_data=None):
         """Main method to download EPC certificate for a single address."""
+        matched_address = None
+        match_score = 0.0
         try:
             # Navigate to start
             if not self.navigate_to_start():
@@ -971,9 +1002,19 @@ class EPCCertificateScraper:
             if not self.enter_postcode(postcode):
                 raise Exception("Failed to enter postcode")
             
-            # Select address
-            if not self.select_address(address, postcode):
+            # Select address and capture the matched address
+            result = self.select_address(address, postcode)
+            if not result or (isinstance(result, tuple) and not result[0]):
                 raise Exception("Failed to select address")
+            
+            # Extract matched address from the result
+            if isinstance(result, tuple) and len(result) >= 3:
+                success, matched_address, match_score = result
+                if not success:
+                    raise Exception("Failed to select address")
+            else:
+                matched_address = "Address selected but details not captured"
+                match_score = 0.0
             
             # Generate filename using the original format
             filename = self.generate_epc_filename(row_data) if row_data is not None else self.generate_simple_filename(address, postcode)
@@ -983,26 +1024,38 @@ class EPCCertificateScraper:
                 raise Exception("Failed to download PDF")
             
             self.logger.info(f"Successfully processed: {address}, {postcode}")
-            return True
+            return True, matched_address, match_score
             
         except Exception as e:
             self.logger.error(f"Failed to process {address}, {postcode}: {e}")
-            return False
+            return False, matched_address, match_score
 
     def generate_epc_filename(self, row_data):
         """Generate filename in the original EPC format: EPC - [Scheme] - [Plot] - [Tenure] - [UPRN].pdf"""
         try:
             # Extract components from row data
             scheme = str(row_data.get('Scheme Abbreviation', 'UNK')).strip()
-            plot = str(row_data.get('Development Plot Number', 'UNK')).strip()
+            plot_raw = str(row_data.get('Development Plot Number', 'UNK')).strip()
             tenure = str(row_data.get('Tenure', 'UNK')).strip()
             uprn = str(row_data.get('UPRN', 'UNK')).strip()
             
             # Clean components (remove 'nan' and empty values)
             scheme = scheme if scheme and scheme.lower() != 'nan' else 'UNK'
-            plot = plot if plot and plot.lower() != 'nan' else 'UNK'
             tenure = tenure if tenure and tenure.lower() != 'nan' else 'UNK'
             uprn = uprn if uprn and uprn.lower() != 'nan' else 'UNK'
+            
+            # Clean up plot number - remove decimal places for whole numbers
+            if plot_raw and plot_raw.lower() != 'nan':
+                try:
+                    plot_float = float(plot_raw)
+                    if plot_float.is_integer():
+                        plot = str(int(plot_float))  # Convert 1.0 to 1
+                    else:
+                        plot = str(plot_float)  # Keep decimals if they're meaningful
+                except ValueError:
+                    plot = plot_raw  # Keep as-is if not a number
+            else:
+                plot = 'UNK'
             
             filename = f"EPC - {scheme} - {plot} - {tenure} - {uprn}.pdf"
             self.logger.info(f"Generated EPC filename: {filename}")

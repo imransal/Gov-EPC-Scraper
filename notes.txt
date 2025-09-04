@@ -1,0 +1,4 @@
+add some detail to the spreadsheet to show, the found address and the matched address on the government website, so for auditing purposes we can see after, exactly what was matched
+
+lets update the way plot number is displayed in the renamed file name. It carries a decimal place. Plot numbers are always going to be whole numbers, they will never have a decimal place. lets just clean that up so the filename looks cleaner
+
